@@ -1,0 +1,293 @@
+<!DOCTYPE HTML>
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes">
+    <title></title>
+    <script type="application/javascript"
+            src="https://cdn.jsdelivr.net/npm/promise-polyfill@8.1.3/dist/polyfill.min.js"></script>
+    <script type="text/javascript" src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/jspdf@latest/dist/jspdf.min.js"></script>
+    <style>
+        iframe {
+            border-top: 1px solid #eee;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        .lmask {
+            position: absolute;
+            height: 100%;
+            width: 100%;
+            background-color: #000;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            top: 0;
+            z-index: 9999;
+            opacity: 0.4;
+        }
+
+        .lmask.fixed {
+            position: fixed;
+        }
+
+        .lmask:before {
+            content: '';
+            background-color: rgba(0, 0, 0, 0);
+            border: 5px solid rgba(0, 183, 229, 0.9);
+            opacity: .9;
+            border-right: 5px solid rgba(0, 0, 0, 0);
+            border-left: 5px solid rgba(0, 0, 0, 0);
+            border-radius: 50px;
+            box-shadow: 0 0 35px #2187e7;
+            width: 50px;
+            height: 50px;
+            -moz-animation: spinPulse 1s infinite ease-in-out;
+            -webkit-animation: spinPulse 1s infinite linear;
+            margin: -25px 0 0 -25px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+        }
+
+        .lmask:after {
+            content: '';
+            background-color: rgba(0, 0, 0, 0);
+            border: 5px solid rgba(0, 183, 229, 0.9);
+            opacity: .9;
+            border-left: 5px solid rgba(0, 0, 0, 0);
+            border-right: 5px solid rgba(0, 0, 0, 0);
+            border-radius: 50px;
+            box-shadow: 0 0 15px #2187e7;
+            width: 30px;
+            height: 30px;
+            -moz-animation: spinoffPulse 1s infinite linear;
+            -webkit-animation: spinoffPulse 1s infinite linear;
+            margin: -15px 0 0 -15px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+        }
+
+        @-moz-keyframes spinPulse {
+            0% {
+                -moz-transform: rotate(160deg);
+                opacity: 0;
+                box-shadow: 0 0 1px #2187e7;
+            }
+            50% {
+                -moz-transform: rotate(145deg);
+                opacity: 1;
+            }
+            100% {
+                -moz-transform: rotate(-320deg);
+                opacity: 0;
+            }
+        }
+
+        @-moz-keyframes spinoffPulse {
+            0% {
+                -moz-transform: rotate(0deg);
+            }
+            100% {
+                -moz-transform: rotate(360deg);
+            }
+        }
+
+        @-webkit-keyframes spinPulse {
+            0% {
+                -webkit-transform: rotate(160deg);
+                opacity: 0;
+                box-shadow: 0 0 1px #2187e7;
+            }
+            50% {
+                -webkit-transform: rotate(145deg);
+                opacity: 1;
+            }
+            100% {
+                -webkit-transform: rotate(-320deg);
+                opacity: 0;
+            }
+        }
+
+        @-webkit-keyframes spinoffPulse {
+            0% {
+                -webkit-transform: rotate(0deg);
+            }
+            100% {
+                -webkit-transform: rotate(360deg);
+            }
+        }
+    </style>
+    <script type="application/javascript">
+        /**
+         * Using html2canvas & jsPdf to convert HTML to a PDF
+         * http://html2canvas.hertzen.com/documentation/
+         * https://www.npmjs.com/package/jspdf
+         *
+         * Params
+         *  - url : URL for the page to convert to pdf
+         *  - delayConvert : how long till we attempt to convert the page after it loads. Default to 150 milliseconds
+         *  - containerId : specific id of an element on the page to convert otherwise will be the full document
+         *  - title : title of the pdf
+         */
+
+        var queryString  = window.location.search,
+            urlParams    = new URLSearchParams(queryString),
+            url          = urlParams.get('url'),
+            delayConvert = urlParams.get('delayConvert') || 150,
+            containerId  = urlParams.get('containerId'),
+            title        = urlParams.get('title') || ' ';
+
+        /**
+         * urlFrameLoad - Once the url frame is loaded capture it and create the PDF
+         */
+        function urlFrameLoad(urlFrame, pdfFrame) {
+            var urlFrameDoc = urlFrame.contentWindow.document,
+                containerEl;
+
+            if (containerId) {
+                containerEl = urlFrameDoc.querySelector('#' + containerId);
+            }
+
+            if (!containerId) {
+                containerEl = urlFrameDoc.body;
+            }
+
+            /**
+             * convert the page to an image so we can place it in a PDF
+             */
+            html2canvas(containerEl, {
+                scale : 1
+            }).then(function (canvas) {
+                var width       = 778,
+                    height      = 1120,
+                    pdfFrame    = document.querySelector('#pdfFrame'),
+                    pdf         = new jsPDF('p', 'pt', 'a4'),
+                    sourceImage = canvas,
+                    pages       = containerEl.clientHeight / height,
+                    sY, ii, ctx, dataUrl, page, pageWidth, pageHeight;
+
+                /**
+                 * set the pdf title
+                 */
+                pdf.setProperties({
+                    title : title
+                });
+
+                /**
+                 * set the contents of the PDF and create multiple pages when needed
+                 */
+                for (ii = 0; ii <= pages; ii++) {
+                    sY = height * ii;
+
+                    page = document.createElement('canvas');
+                    page.setAttribute('width', width);
+                    page.setAttribute('height', height);
+                    ctx = page.getContext('2d');
+
+                    ctx.drawImage(sourceImage, 0, sY, width, height, 0, 0, width, height);
+
+                    dataUrl = page.toDataURL('image/png', 1.0);
+
+                    pageWidth  = page.width;
+                    pageHeight = page.clientHeight;
+
+                    if (ii > 0) {
+                        pdf.addPage(595, 842);
+                    }
+
+                    pdf.setPage(ii + 1);
+
+                    pdf.addImage(dataUrl, 'PNG', 0, 0, (pageWidth * .72), (pageHeight * .71));
+                }
+
+                /**
+                 * hide the base URL frame
+                 */
+                urlFrame.classList.add('hide');
+
+                /**
+                 * show the pdf frame
+                 */
+                pdfFrame.classList.remove('hide');
+
+                /**
+                 * load the pdf
+                 */
+                pdfFrame.setAttribute('src', URL.createObjectURL(pdf.output('blob')));
+            });
+        }
+
+        /**
+         * pdfFrameLoad - Once the PDF frame is loaded hide the load mask
+         */
+        function pdfFrameLoad() {
+            var loadMask = document.querySelector('#loadMask');
+
+            if (loadMask) {
+                loadMask.classList.add('hide');
+            }
+        }
+
+        /**
+         * onReady - When ready start the process...
+         */
+        function onReady() {
+            var urlFrame = document.querySelector('#urlFrame'),
+                pdfFrame = document.querySelector('#pdfFrame');
+
+            /**
+             * make sure a url was passed in
+             */
+            if (!url) {
+                console.error('url parameter not passed.');
+                return;
+            }
+
+            /**
+             * check for the title of the pdf
+             */
+            if (title) {
+                document.title = title;
+            }
+
+            urlFrame.onload = function () {
+                setTimeout(function () {
+                    urlFrameLoad(urlFrame, pdfFrame);
+                }, delayConvert);
+            };
+
+            /**
+             * listen for the load of the PDF frame
+             */
+            pdfFrame.onload = pdfFrameLoad;
+
+            /**
+             * load the url frame with the provided URL
+             */
+            urlFrame.setAttribute('src', url);
+        }
+
+
+        if (document.readyState === 'complete' || (document.readyState !== 'loading' && !document.documentElement.doScroll)) {
+            onReady();
+        } else {
+            document.addEventListener('DOMContentLoaded', onReady);
+        }
+    </script>
+</head>
+<body>
+<div class='lmask' id="loadMask"></div>
+<!-- iframe that will load the page that will be eventually converted to a PDF. -->
+<iframe id="urlFrame" width="778px" height="1120px" style="opacity:0;" frameborder="0"></iframe>
+<!-- iframe that will display the new PDF -->
+<iframe id="pdfFrame" width="100%" height="100%" class="hide" frameborder="0"></iframe>
+</body>
+</html>
